@@ -165,11 +165,14 @@ public class PlayerDataManager {
                 playerConfigsManager.resetKitForAllPlayers(kitName);
             }
 
-            players.values().forEach(p -> p.resetKit(kitName));
-            if(plugin.getMySQLConnection() != null){
-                plugin.getMySQLConnection().resetKit(null,kitName,true);
-            }
-            callback.onDone(PlayerKitsMessageResult.success());
+            TaskUtils.runSync(plugin, () -> {
+                players.values().forEach(p -> p.resetKit(kitName));
+                if(plugin.getMySQLConnection() != null){
+                    plugin.getMySQLConnection().resetKit(null,kitName,true);
+                }
+
+                callback.onDone(PlayerKitsMessageResult.success());
+            });
         });
     }
 
@@ -178,55 +181,41 @@ public class PlayerDataManager {
             MySQLConnection mySQLConnection = plugin.getMySQLConnection();
             UUID uuid = player.getUniqueId();
             mySQLConnection.getPlayer(uuid.toString(), playerData -> {
-                TaskUtils.runEntity(plugin, player, () -> {
-                    if (!player.isOnline()) {
-                        return;
+                if(playerData != null) {
+                    addPlayer(playerData);
+                    //Update name if different
+                    if (!playerData.getName().equals(player.getName())) {
+                        updatePlayerName(playerData.getName(), player.getName(), player.getUniqueId());
+                        playerData.setName(player.getName());
+                        mySQLConnection.updatePlayerName(playerData);
                     }
-                    if(playerData != null) {
-                        addPlayer(playerData);
-                        //Update name if different
-                        if (playerData.getName() == null || !playerData.getName().equals(player.getName())) {
-                            updatePlayerName(playerData.getName(), player.getName(), player.getUniqueId());
-                            playerData.setName(player.getName());
-                            mySQLConnection.updatePlayerName(playerData);
-                        }
-                    }else {
-                        PlayerData newPlayerData = new PlayerData(uuid, player.getName());
-                        addPlayer(newPlayerData);
+                }else {
+                    playerData = new PlayerData(uuid, player.getName());
+                    addPlayer(playerData);
 
-                        //Create if it doesn't exist + first join kit
-                        mySQLConnection.createPlayer(newPlayerData, () -> TaskUtils.runEntity(plugin, player, () -> {
-                            if (player.isOnline()) {
-                                plugin.getKitsManager().giveFirstJoinKit(player);
-                            }
-                        }));
-                    }
-                });
+                    //Create if it doesn't exist + first join kit
+                    mySQLConnection.createPlayer(playerData, () -> plugin.getKitsManager().giveFirstJoinKit(player));
+                }
             });
         }else{
             // Load player data from file if exists
             plugin.getConfigsManager().getPlayersConfigManager().loadConfig(player.getUniqueId(), playerData -> {
-                TaskUtils.runEntity(plugin, player, () -> {
-                    if (!player.isOnline()) {
-                        return;
+                if(playerData != null){
+                    addPlayer(playerData);
+                    if(playerData.getName() == null || !playerData.getName().equals(player.getName())){
+                        updatePlayerName(playerData.getName(),player.getName(),player.getUniqueId());
+                        playerData.setName(player.getName());
+                        playerData.setModified(true);
                     }
-                    if(playerData != null){
-                        addPlayer(playerData);
-                        if(playerData.getName() == null || !playerData.getName().equals(player.getName())){
-                            updatePlayerName(playerData.getName(),player.getName(),player.getUniqueId());
-                            playerData.setName(player.getName());
-                            playerData.setModified(true);
-                        }
-                    }else{
-                        // Create it if it doesn't exist.
-                        PlayerData newPlayerData = new PlayerData(player.getUniqueId(),player.getName());
-                        newPlayerData.setModified(true);
-                        addPlayer(newPlayerData);
+                }else{
+                    // Create it if it doesn't exist.
+                    playerData = new PlayerData(player.getUniqueId(),player.getName());
+                    playerData.setModified(true);
+                    addPlayer(playerData);
 
-                        // First join kit
-                        plugin.getKitsManager().giveFirstJoinKit(player);
-                    }
-                });
+                    // First join kit
+                    plugin.getKitsManager().giveFirstJoinKit(player);
+                }
             });
         }
     }

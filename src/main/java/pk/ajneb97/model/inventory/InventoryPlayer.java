@@ -4,12 +4,12 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 public class InventoryPlayer {
-    private volatile Player player;
-    private volatile String inventoryName;
+    private Player player;
+    private String inventoryName;
 
-    private volatile String previousInventoryName;
-    private volatile String kitName;
-    private volatile ItemStack[] savedInventoryContents;
+    private String previousInventoryName;
+    private String kitName;
+    private ItemStack[] savedInventoryContents;
 
     public InventoryPlayer(Player player, String inventoryName) {
         this.player = player;
