@@ -186,7 +186,7 @@ public class KitsManager {
 
             //Cooldown
             long playerCooldown = playerDataManager.getKitCooldown(player,kit.getName());
-            if(kit.getCooldown() != 0 && !PlayerUtils.isPlayerKitsAdmin(player) && !PlayerUtils.hasCooldownBypassPermission(player)){
+            if(kit.getCooldown() != 0 && !PlayerUtils.hasCooldownBypassPermission(player)){
                 long currentMillis = System.currentTimeMillis();
                 long millisDif = playerCooldown-currentMillis;
                 String timeStringMillisDif = OtherUtils.getTime(millisDif/1000, msgManager);
@@ -349,7 +349,7 @@ public class KitsManager {
             }
 
             //Cooldown
-            if(kit.getCooldown() != 0 && !PlayerUtils.isPlayerKitsAdmin(player) && !PlayerUtils.hasCooldownBypassPermission(player)){
+            if(kit.getCooldown() != 0 && !PlayerUtils.hasCooldownBypassPermission(player)){
                 long millisMax = System.currentTimeMillis()+(kit.getCooldown()* 1000L);
                 playerDataManager.setKitCooldown(player,kit.getName(),millisMax);
             }
