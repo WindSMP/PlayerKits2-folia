@@ -473,6 +473,11 @@ public class MainCommand implements CommandExecutor, TabCompleter {
         if(finalOutputMode == null){
             finalOutputMode = plugin.getPlayerDataManager().getDefaultKitOutputMode(player);
             if(finalOutputMode == null){
+                PlayerKitsMessageResult validationResult = plugin.getKitsManager().validateKitClaim(player, kitName, false);
+                if(validationResult.isError()){
+                    msgManager.sendMessage(player,validationResult.getMessage(),true);
+                    return;
+                }
                 openOutputSelectionInventory(player,kitName);
                 return;
             }

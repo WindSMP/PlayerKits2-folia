@@ -170,66 +170,10 @@ public class KitsManager {
             return PlayerKitsMessageResult.error(msg != null ? msg.replace("%kit%",kitName) : "");
         }
 
-        //Check properties
-        if(!giveKitInstructions.isFromCommand()){
-            //Permission
-            if(!giveKitInstructions.isIgnorePermission() && !kit.playerHasPermission(player)){
-                sendKitActions(kit.getErrorActions(),player,false);
-                return PlayerKitsMessageResult.error(messagesFile.getString("kitNoPermissions"));
-            }
-
-            //One time
-            if(kit.isOneTime() && !PlayerUtils.isPlayerKitsAdmin(player) && !PlayerUtils.hasOneTimeBypassPermission(player)
-                    && playerDataManager.isKitOneTime(player,kit.getName())){
-                sendKitActions(kit.getErrorActions(),player,false);
-                return PlayerKitsMessageResult.error(messagesFile.getString("oneTimeError"));
-            }
-
-            //Cooldown
-            long playerCooldown = playerDataManager.getKitCooldown(player,kit.getName());
-            if(kit.getCooldown() != 0 && !PlayerUtils.hasCooldownBypassPermission(player)){
-                long currentMillis = System.currentTimeMillis();
-                long millisDif = playerCooldown-currentMillis;
-                String timeStringMillisDif = OtherUtils.getTime(millisDif/1000, msgManager);
-                if(!timeStringMillisDif.isEmpty()) {
-                    sendKitActions(kit.getErrorActions(),player,false);
-                    return PlayerKitsMessageResult.error(messagesFile.getString("cooldownError")
-                            .replace("%time%",timeStringMillisDif));
-                }
-            }
-
-            //Requirements - Buy
-            KitRequirements kitRequirements = kit.getRequirements();
-            if(!giveKitInstructions.isIgnoreRequirements() && kitRequirements != null &&
-                    (kitRequirements.getPrice() != 0 || !kitRequirements.getExtraRequirements().isEmpty())){
-                if(!(kitRequirements.isOneTimeRequirements() && playerDataManager.isKitBought(player,kit.getName()))){
-                    if(!giveKitInstructions.isRequirementsSatisfied()){
-                        //Player must buy it first
-                        PlayerKitsMessageResult result = PlayerKitsMessageResult.success();
-                        result.setProceedToBuy(true);
-                        return result;
-                    }
-
-                    //Check price
-                    if(!passPrice(kitRequirements.getPrice(),player)){
-                        sendKitActions(kit.getErrorActions(),player,false);
-                        return PlayerKitsMessageResult.error(messagesFile.getString("requirementsError"));
-                    }
-                    //Check requirements
-                    List<String> requirementsConditions = kitRequirements.getExtraRequirements();
-                    if(plugin.getDependencyManager().isPlaceholderAPI()) {
-                        for(String condition : requirementsConditions) {
-                            boolean passCondition = PlayerUtils.passCondition(player, condition);
-                            if(!passCondition) {
-                                sendKitActions(kit.getErrorActions(),player,false);
-                                return PlayerKitsMessageResult.error(messagesFile.getString("requirementsError"));
-                            }
-                        }
-                    }
-                }
-            }
+        PlayerKitsMessageResult validateResult = validateKitClaim(player, kit, giveKitInstructions, messagesFile, msgManager, true);
+        if(validateResult.isError() || validateResult.isProceedToBuy()){
+            return validateResult;
         }
-
 
         KitOutputMode outputMode = giveKitInstructions.getOutputMode();
         if(outputMode == null){
@@ -278,6 +222,85 @@ public class KitsManager {
                 //Data
                 if(kitRequirements.isOneTimeRequirements()){
                     playerDataManager.setKitBought(player,kitName);
+                }
+            }
+        }
+
+        return PlayerKitsMessageResult.success();
+    }
+
+    public PlayerKitsMessageResult validateKitClaim(Player player, String kitName, boolean checkRequirements){
+        Kit kit = getKitByName(kitName);
+        FileConfiguration messagesFile = plugin.getConfigsManager().getMessagesConfigManager().getConfig();
+        MessagesManager msgManager = plugin.getMessagesManager();
+
+        if(kit == null){
+            String msg = messagesFile.getString("kitDoesNotExists");
+            return PlayerKitsMessageResult.error(msg != null ? msg.replace("%kit%",kitName) : "");
+        }
+
+        return validateKitClaim(player, kit, new GiveKitInstructions(false,false,false,false), messagesFile, msgManager, checkRequirements);
+    }
+
+    private PlayerKitsMessageResult validateKitClaim(Player player, Kit kit, GiveKitInstructions giveKitInstructions,
+                                                     FileConfiguration messagesFile, MessagesManager msgManager,
+                                                     boolean checkRequirements){
+        PlayerDataManager playerDataManager = plugin.getPlayerDataManager();
+
+        if(giveKitInstructions.isFromCommand()){
+            return PlayerKitsMessageResult.success();
+        }
+
+        if(!giveKitInstructions.isIgnorePermission() && !kit.playerHasPermission(player)){
+            sendKitActions(kit.getErrorActions(),player,false);
+            return PlayerKitsMessageResult.error(messagesFile.getString("kitNoPermissions"));
+        }
+
+        if(kit.isOneTime() && !PlayerUtils.isPlayerKitsAdmin(player) && !PlayerUtils.hasOneTimeBypassPermission(player)
+                && playerDataManager.isKitOneTime(player,kit.getName())){
+            sendKitActions(kit.getErrorActions(),player,false);
+            return PlayerKitsMessageResult.error(messagesFile.getString("oneTimeError"));
+        }
+
+        long playerCooldown = playerDataManager.getKitCooldown(player,kit.getName());
+        if(kit.getCooldown() != 0 && !PlayerUtils.hasCooldownBypassPermission(player)){
+            long currentMillis = System.currentTimeMillis();
+            long millisDif = playerCooldown-currentMillis;
+            String timeStringMillisDif = OtherUtils.getTime(millisDif/1000, msgManager);
+            if(!timeStringMillisDif.isEmpty()) {
+                sendKitActions(kit.getErrorActions(),player,false);
+                return PlayerKitsMessageResult.error(messagesFile.getString("cooldownError")
+                        .replace("%time%",timeStringMillisDif));
+            }
+        }
+
+        if(!checkRequirements || giveKitInstructions.isIgnoreRequirements()){
+            return PlayerKitsMessageResult.success();
+        }
+
+        KitRequirements kitRequirements = kit.getRequirements();
+        if(kitRequirements != null && (kitRequirements.getPrice() != 0 || !kitRequirements.getExtraRequirements().isEmpty())){
+            if(!(kitRequirements.isOneTimeRequirements() && playerDataManager.isKitBought(player,kit.getName()))){
+                if(!giveKitInstructions.isRequirementsSatisfied()){
+                    PlayerKitsMessageResult result = PlayerKitsMessageResult.success();
+                    result.setProceedToBuy(true);
+                    return result;
+                }
+
+                if(!passPrice(kitRequirements.getPrice(),player)){
+                    sendKitActions(kit.getErrorActions(),player,false);
+                    return PlayerKitsMessageResult.error(messagesFile.getString("requirementsError"));
+                }
+
+                List<String> requirementsConditions = kitRequirements.getExtraRequirements();
+                if(plugin.getDependencyManager().isPlaceholderAPI()) {
+                    for(String condition : requirementsConditions) {
+                        boolean passCondition = PlayerUtils.passCondition(player, condition);
+                        if(!passCondition) {
+                            sendKitActions(kit.getErrorActions(),player,false);
+                            return PlayerKitsMessageResult.error(messagesFile.getString("requirementsError"));
+                        }
+                    }
                 }
             }
         }

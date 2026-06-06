@@ -262,6 +262,11 @@ public class InventoryManager {
 
         KitOutputMode outputMode = plugin.getPlayerDataManager().getDefaultKitOutputMode(player);
         if(outputMode == null){
+            PlayerKitsMessageResult validationResult = plugin.getKitsManager().validateKitClaim(player, kitName, false);
+            if(validationResult.isError()){
+                msgManager.sendMessage(player,validationResult.getMessage(),true);
+                return;
+            }
             openOutputSelectionInventory(inventoryPlayer,kitName);
             return;
         }
@@ -403,7 +408,7 @@ public class InventoryManager {
 
             //Cooldown
             long playerCooldown = playerDataManager.getKitCooldown(player,kit.getName());
-            if(kit.getCooldown() != 0 && !PlayerUtils.isPlayerKitsAdmin(player)){
+            if(kit.getCooldown() != 0 && !PlayerUtils.hasCooldownBypassPermission(player)){
                 String timeStringMillisDif = playerDataManager.getKitCooldownString(playerCooldown);
                 if(!timeStringMillisDif.isEmpty()) {
                     kitItem = kit.getDisplayItemCooldown();

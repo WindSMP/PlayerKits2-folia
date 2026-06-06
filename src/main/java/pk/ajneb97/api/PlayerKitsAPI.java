@@ -28,7 +28,7 @@ public class PlayerKitsAPI {
 
         PlayerDataManager playerDataManager = plugin.getPlayerDataManager();
         long playerCooldown = playerDataManager.getKitCooldown(player,kit.getName());
-        if(kit.getCooldown() != 0 && !PlayerUtils.isPlayerKitsAdmin(player)){
+        if(kit.getCooldown() != 0 && !PlayerUtils.hasCooldownBypassPermission(player)){
             String timeStringMillisDif = playerDataManager.getKitCooldownString(playerCooldown);
             if(!timeStringMillisDif.isEmpty()) {
                 return timeStringMillisDif;
