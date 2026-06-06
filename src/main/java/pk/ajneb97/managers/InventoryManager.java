@@ -12,6 +12,7 @@ import pk.ajneb97.configs.MainConfigManager;
 import pk.ajneb97.model.Kit;
 import pk.ajneb97.model.KitAction;
 import pk.ajneb97.model.internal.GiveKitInstructions;
+import pk.ajneb97.model.internal.KitOutputMode;
 import pk.ajneb97.model.internal.KitPosition;
 import pk.ajneb97.model.internal.KitVariable;
 import pk.ajneb97.model.internal.PlayerKitsMessageResult;
@@ -74,11 +75,7 @@ public class InventoryManager {
     }
 
     public void removeInventoryPlayer(Player player){
-        for(int i=0;i<players.size();i++){
-            if(players.get(i).getPlayer().equals(player)){
-                players.remove(i);
-            }
-        }
+        players.removeIf(inventoryPlayer -> inventoryPlayer.getPlayer().equals(player));
     }
 
     public void openInventory(InventoryPlayer inventoryPlayer){
@@ -86,8 +83,11 @@ public class InventoryManager {
         MainConfigManager mainConfigManager = plugin.getConfigsManager().getMainConfigManager();
 
         String title = kitInventory.getTitle();
-        if(inventoryPlayer.getInventoryName().equals("buy_requirements_inventory") || inventoryPlayer.getInventoryName().equals("preview_inventory")){
-            title = title.replace("%kit%",inventoryPlayer.getKitName());
+        if(inventoryPlayer.getInventoryName().equals("buy_requirements_inventory")
+                || inventoryPlayer.getInventoryName().equals("preview_inventory")
+                || inventoryPlayer.getInventoryName().equals("output_select_inventory")){
+            String kitName = inventoryPlayer.getKitName() != null ? inventoryPlayer.getKitName() : "";
+            title = title.replace("%kit%",kitName);
         }
         Inventory inv;
         if(mainConfigManager.isUseMiniMessage()){
@@ -113,6 +113,10 @@ public class InventoryManager {
 
                 ItemStack item = kitItemManager.createItemFromKitItem(itemInventory.getItem(),inventoryPlayer.getPlayer(),null);
 
+                if(type != null){
+                    item = ItemUtils.setTagStringItem(plugin,item, "playerkits_type", type);
+                }
+
                 if(inventoryPlayer.getInventoryName().equals("buy_requirements_inventory")){
                     inventoryRequirementsManager.configureRequirementsItem(item,inventoryPlayer.getKitName(),inventoryPlayer.getPlayer());
                     if(type != null){
@@ -137,6 +141,7 @@ public class InventoryManager {
 
 
         inventoryPlayer.getPlayer().openInventory(inv);
+        removeInventoryPlayer(inventoryPlayer.getPlayer());
         players.add(inventoryPlayer);
     }
 
@@ -201,9 +206,14 @@ public class InventoryManager {
             return;
         }
 
+        String typeTag = ItemUtils.getTagStringItem(plugin,item,"playerkits_type");
+
         //Requirements inventory
         if(inventoryPlayer.getInventoryName().equals("buy_requirements_inventory")){
             String buyTag = ItemUtils.getTagStringItem(plugin,item,"playerkits_buy");
+            if(buyTag == null){
+                buyTag = typeTag;
+            }
             if(buyTag == null){
                 return;
             }
@@ -212,6 +222,11 @@ public class InventoryManager {
             }else{
                 inventoryRequirementsManager.requirementsInventoryCancel(inventoryPlayer);
             }
+            return;
+        }
+
+        if(inventoryPlayer.getInventoryName().equals("output_select_inventory") && typeTag != null){
+            clickOnOutputItem(inventoryPlayer,typeTag);
         }
     }
 
@@ -245,40 +260,95 @@ public class InventoryManager {
         }
 
 
+        KitOutputMode outputMode = plugin.getPlayerDataManager().getDefaultKitOutputMode(player);
+        if(outputMode == null){
+            openOutputSelectionInventory(inventoryPlayer,kitName);
+            return;
+        }
+
+        claimKitWithOutputMode(inventoryPlayer,kitName,outputMode,messagesConfig,msgManager,mainConfigManager);
+    }
+
+    private void openOutputSelectionInventory(InventoryPlayer inventoryPlayer,String kitName){
+        inventoryPlayer.setPreviousInventoryName(inventoryPlayer.getInventoryName());
+        inventoryPlayer.setInventoryName("output_select_inventory");
+        inventoryPlayer.setKitName(kitName);
+        inventoryPlayer.setSelectedOutputMode(null);
+        openInventory(inventoryPlayer);
+    }
+
+    private void clickOnOutputItem(InventoryPlayer inventoryPlayer,String typeTag){
+        KitOutputMode outputMode = null;
+        if(typeTag.equalsIgnoreCase("output: armor")){
+            outputMode = KitOutputMode.ARMOR;
+        }else if(typeTag.equalsIgnoreCase("output: shulker")){
+            outputMode = KitOutputMode.SHULKER;
+        }
+
+        if(outputMode == null){
+            return;
+        }
+
+        MainConfigManager mainConfigManager = plugin.getConfigsManager().getMainConfigManager();
+        FileConfiguration messagesConfig = plugin.getConfigsManager().getMessagesConfigManager().getConfig();
+        MessagesManager msgManager = plugin.getMessagesManager();
+        String kitName = inventoryPlayer.getKitName();
+        if(kitName == null){
+            return;
+        }
+
+        claimKitWithOutputMode(inventoryPlayer,kitName,outputMode,messagesConfig,msgManager,mainConfigManager);
+    }
+
+    private void claimKitWithOutputMode(InventoryPlayer inventoryPlayer,String kitName,KitOutputMode outputMode,
+                                        FileConfiguration messagesConfig,MessagesManager msgManager,MainConfigManager mainConfigManager){
+        Player player = inventoryPlayer.getPlayer();
         PlayerKitsMessageResult result = plugin.getKitsManager().giveKit(player,kitName,
-                new GiveKitInstructions());
+                new GiveKitInstructions(false,false,false,false,outputMode));
         if(result.isError()){
             msgManager.sendMessage(player,result.getMessage(),true);
             return;
-        }else{
-            if(result.isProceedToBuy()){
-                //Open requirements inventory
-                inventoryPlayer.setPreviousInventoryName(inventoryPlayer.getInventoryName());
-                inventoryPlayer.setInventoryName("buy_requirements_inventory");
-                inventoryPlayer.setKitName(kitName);
-                openInventory(inventoryPlayer);
-                return;
-            }
-            String msg = messagesConfig.getString("kitReceived");
-            if (msg != null) {
-                msgManager.sendMessage(player,msg.replace("%kit%",kitName),true);
-            }
         }
 
+        String previousInventory = inventoryPlayer.getInventoryName().equals("output_select_inventory")
+                ? inventoryPlayer.getPreviousInventoryName() : inventoryPlayer.getInventoryName();
+        if(result.isProceedToBuy()){
+            //Open requirements inventory
+            inventoryPlayer.setPreviousInventoryName(previousInventory);
+            inventoryPlayer.setInventoryName("buy_requirements_inventory");
+            inventoryPlayer.setKitName(kitName);
+            inventoryPlayer.setSelectedOutputMode(outputMode);
+            openInventory(inventoryPlayer);
+            return;
+        }
+
+        String msg = messagesConfig.getString("kitReceived");
+        if (msg != null) {
+            msgManager.sendMessage(player,msg.replace("%kit%",kitName),true);
+        }
+
+        inventoryPlayer.setSelectedOutputMode(null);
+        inventoryPlayer.setKitName(null);
         if(mainConfigManager.isCloseInventoryOnClaim()){
             player.closeInventory();
             return;
         }
 
+        inventoryPlayer.setInventoryName(previousInventory);
         openInventory(inventoryPlayer);
     }
 
     public void clickOnOpenInventoryItem(InventoryPlayer inventoryPlayer,String openInventory){
+        boolean fromOutputSelection = inventoryPlayer.getInventoryName().equals("output_select_inventory");
         if(openInventory.equals("previous")){
             inventoryPlayer.setInventoryName(inventoryPlayer.getPreviousInventoryName());
         }else{
             inventoryPlayer.setPreviousInventoryName(inventoryPlayer.getInventoryName());
             inventoryPlayer.setInventoryName(openInventory);
+        }
+        if(fromOutputSelection){
+            inventoryPlayer.setKitName(null);
+            inventoryPlayer.setSelectedOutputMode(null);
         }
         openInventory(inventoryPlayer);
     }

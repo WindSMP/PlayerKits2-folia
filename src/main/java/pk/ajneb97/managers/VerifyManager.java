@@ -66,6 +66,10 @@ public class VerifyManager {
             errors.add(new PKInventoryDefaultNotExistsError("inventory.yml",null,true,"buy_requirements_inventory"));
             criticalErrors = true;
         }
+        if(inventoryManager.getInventory("output_select_inventory") == null){
+            errors.add(new PKInventoryDefaultNotExistsError("inventory.yml",null,true,"output_select_inventory"));
+            criticalErrors = true;
+        }
     }
 
     public void verifyKit(Kit kit) {

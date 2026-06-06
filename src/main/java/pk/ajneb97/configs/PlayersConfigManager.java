@@ -5,6 +5,7 @@ import pk.ajneb97.PlayerKits2;
 import pk.ajneb97.configs.model.CommonConfig;
 import pk.ajneb97.model.PlayerData;
 import pk.ajneb97.model.PlayerDataKit;
+import pk.ajneb97.model.internal.KitOutputMode;
 import pk.ajneb97.model.internal.GenericCallback;
 import pk.ajneb97.utils.TaskUtils;
 
@@ -55,6 +56,8 @@ public class PlayersConfigManager extends DataFolderConfigManager{
 
                 playerData = new PlayerData(uuid, name);
                 playerData.setKits(playerDataKits);
+                KitOutputMode outputMode = KitOutputMode.fromString(config.getString("default_output_mode"));
+                playerData.setDefaultKitOutputMode(outputMode);
             }
 
             PlayerData finalPlayer = playerData;
@@ -72,6 +75,11 @@ public class PlayersConfigManager extends DataFolderConfigManager{
 
         config.set("name", playerName);
         config.set("kits",null);
+        if(playerData.getDefaultKitOutputMode() == null){
+            config.set("default_output_mode", null);
+        }else{
+            config.set("default_output_mode", playerData.getDefaultKitOutputMode().name());
+        }
 
         for(PlayerDataKit playerDataKit : playerData.getKits()){
             String kitName = playerDataKit.getName();

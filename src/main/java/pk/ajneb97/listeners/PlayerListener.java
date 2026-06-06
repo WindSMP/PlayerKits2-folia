@@ -6,6 +6,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import pk.ajneb97.PlayerKits2;
@@ -52,7 +53,7 @@ public class PlayerListener implements Listener {
         InventoryPlayer inventoryPlayer = invManager.getInventoryPlayer(player);
         if(inventoryPlayer != null) {
             event.setCancelled(true);
-            if(event.getCurrentItem() == null || event.getSlotType() == null){
+            if(event.getCurrentItem() == null || event.getSlotType() == null || event.getClickedInventory() == null){
                 return;
             }
 
@@ -60,6 +61,15 @@ public class PlayerListener implements Listener {
                 ClickType clickType = event.getClick();
                 invManager.clickInventory(inventoryPlayer,event.getCurrentItem(),clickType);
             }
+        }
+    }
+
+    @EventHandler
+    public void dragInventory(InventoryDragEvent event){
+        Player player = (Player) event.getWhoClicked();
+        InventoryPlayer inventoryPlayer = plugin.getInventoryManager().getInventoryPlayer(player);
+        if(inventoryPlayer != null){
+            event.setCancelled(true);
         }
     }
 }

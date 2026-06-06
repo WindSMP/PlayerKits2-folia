@@ -82,6 +82,29 @@ public class MessagesConfigManager {
                 getConfig().set("pluginCriticalErrors", "&cThe plugin has detected some errors. Check them using &7/kit verify");
                 saveConfig();
             }
+            if(!text.contains("commandOutputError:")){
+                getConfig().set("commandClaimError", "&cYou need to use: &7/kit claim <kit> (optional)<armor/shulker>");
+                getConfig().set("commandGiveError", "&cYou need to use: &7/kit give <kit> <player> (optional)<armor/shulker>");
+                getConfig().set("commandOutputError", "&cYou need to use: &7/kit output <set/get/unset> ...");
+                getConfig().set("commandOutputSetError", "&cYou need to use: &7/kit output set <armor/shulker> (optional)<player>");
+                getConfig().set("commandOutputUnsetError", "&cYou need to use: &7/kit output unset (optional)<player>");
+                getConfig().set("commandOutputGetError", "&cYou need to use: &7/kit output get (optional)<player>");
+                getConfig().set("commandOutputInvalidMode", "&cInvalid mode. Use &7armor &cor &7shulker&c.");
+                getConfig().set("commandOutputSetCorrect", "&aDefault output mode set to &7%mode%&a.");
+                getConfig().set("commandOutputSetOtherCorrect", "&aSet output mode to &7%mode% &afor &e%player%&a.");
+                getConfig().set("commandOutputUnsetCorrect", "&aDefault output mode removed. The selector UI will open again.");
+                getConfig().set("commandOutputUnsetOtherCorrect", "&aRemoved output mode for &e%player%&a.");
+                getConfig().set("commandOutputCurrent", "&aOutput mode for &7%player%&a: &e%mode%&a.");
+                getConfig().set("shulkerNotSupportedError", "&cThis server version doesn't support shulker output.");
+                saveConfig();
+            }
+            if(!text.contains("commandOutputUnsetError:")){
+                getConfig().set("commandOutputError", "&cYou need to use: &7/kit output <set/get/unset> ...");
+                getConfig().set("commandOutputUnsetError", "&cYou need to use: &7/kit output unset (optional)<player>");
+                getConfig().set("commandOutputUnsetCorrect", "&aDefault output mode removed. The selector UI will open again.");
+                getConfig().set("commandOutputUnsetOtherCorrect", "&aRemoved output mode for &e%player%&a.");
+                saveConfig();
+            }
 
         }catch(IOException e){
             plugin.getLogger().log(java.util.logging.Level.SEVERE, "An error occurred in PlayerKits2", e);

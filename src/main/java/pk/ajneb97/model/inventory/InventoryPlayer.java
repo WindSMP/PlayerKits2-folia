@@ -2,6 +2,7 @@ package pk.ajneb97.model.inventory;
 
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import pk.ajneb97.model.internal.KitOutputMode;
 
 public class InventoryPlayer {
     private Player player;
@@ -9,6 +10,7 @@ public class InventoryPlayer {
 
     private String previousInventoryName;
     private String kitName;
+    private KitOutputMode selectedOutputMode;
     private ItemStack[] savedInventoryContents;
 
     public InventoryPlayer(Player player, String inventoryName) {
@@ -46,6 +48,14 @@ public class InventoryPlayer {
 
     public void setKitName(String kitName) {
         this.kitName = kitName;
+    }
+
+    public KitOutputMode getSelectedOutputMode() {
+        return selectedOutputMode;
+    }
+
+    public void setSelectedOutputMode(KitOutputMode selectedOutputMode) {
+        this.selectedOutputMode = selectedOutputMode;
     }
 
     public void restoreSavedInventoryContents() {

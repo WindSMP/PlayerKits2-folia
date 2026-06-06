@@ -6,6 +6,7 @@ import pk.ajneb97.PlayerKits2;
 import pk.ajneb97.configs.PlayersConfigManager;
 import pk.ajneb97.database.MySQLConnection;
 import pk.ajneb97.model.PlayerData;
+import pk.ajneb97.model.internal.KitOutputMode;
 import pk.ajneb97.model.internal.GenericCallback;
 import pk.ajneb97.model.internal.PlayerKitsMessageResult;
 import pk.ajneb97.utils.OtherUtils;
@@ -132,6 +133,24 @@ public class PlayerDataManager {
             return false;
         }else{
             return playerData.getKitHasBought(kitName);
+        }
+    }
+
+    public KitOutputMode getDefaultKitOutputMode(Player player){
+        PlayerData playerData = getPlayerByUUID(player.getUniqueId());
+        if(playerData == null){
+            return null;
+        }
+        return playerData.getDefaultKitOutputMode();
+    }
+
+    public void setDefaultKitOutputMode(Player player, KitOutputMode outputMode){
+        PlayerData playerData = getPlayer(player, true);
+        playerData.setDefaultKitOutputMode(outputMode);
+        playerData.setModified(true);
+
+        if(plugin.getMySQLConnection() != null){
+            plugin.getMySQLConnection().updatePlayerOutputMode(playerData);
         }
     }
 

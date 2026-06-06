@@ -13,6 +13,7 @@ import pk.ajneb97.model.Kit;
 import pk.ajneb97.model.KitAction;
 import pk.ajneb97.model.KitRequirements;
 import pk.ajneb97.model.internal.GiveKitInstructions;
+import pk.ajneb97.model.internal.KitOutputMode;
 import pk.ajneb97.model.internal.PlayerKitsMessageResult;
 import pk.ajneb97.model.inventory.KitInventory;
 import pk.ajneb97.model.item.KitItem;
@@ -230,6 +231,61 @@ public class KitsManager {
         }
 
 
+        KitOutputMode outputMode = giveKitInstructions.getOutputMode();
+        if(outputMode == null){
+            outputMode = KitOutputMode.ARMOR;
+        }
+
+        PlayerKitsMessageResult outputResult;
+        if(outputMode == KitOutputMode.SHULKER){
+            outputResult = giveKitShulker(player,kit,messagesFile,configFile);
+        }else{
+            outputResult = giveKitArmor(player,kit,messagesFile,configFile);
+        }
+        if(outputResult.isError()){
+            return outputResult;
+        }
+
+        //Update properties
+        if(!giveKitInstructions.isFromCommand()){
+            //One time
+            if(kit.isOneTime() && !PlayerUtils.isPlayerKitsAdmin(player) && !PlayerUtils.hasOneTimeBypassPermission(player)){
+                playerDataManager.setKitOneTime(player,kit.getName());
+            }
+
+            //Cooldown
+            if(kit.getCooldown() != 0 && !PlayerUtils.hasCooldownBypassPermission(player)){
+                long millisMax = System.currentTimeMillis()+(kit.getCooldown()* 1000L);
+                playerDataManager.setKitCooldown(player,kit.getName(),millisMax);
+            }
+
+            //Requirements - Buy
+            KitRequirements kitRequirements = kit.getRequirements();
+            if(!giveKitInstructions.isIgnoreRequirements() && kitRequirements != null && giveKitInstructions.isRequirementsSatisfied()){
+                //Check price and update balance
+                double price = kitRequirements.getPrice();
+                Economy economy = plugin.getDependencyManager().getVaultEconomy();
+                if(price > 0 && economy != null){
+                    economy.withdrawPlayer(player,price);
+                }
+
+                //Actions
+                List<String> actions = kitRequirements.getActionsOnBuy();
+                for(String action : actions){
+                    executeAction(player,action);
+                }
+
+                //Data
+                if(kitRequirements.isOneTimeRequirements()){
+                    playerDataManager.setKitBought(player,kitName);
+                }
+            }
+        }
+
+        return PlayerKitsMessageResult.success();
+    }
+
+    private PlayerKitsMessageResult giveKitArmor(Player player, Kit kit, FileConfiguration messagesFile, FileConfiguration configFile){
         KitItemManager kitItemManager = plugin.getKitItemManager();
         List<KitItem> items = kit.getItems();
 
@@ -293,17 +349,16 @@ public class KitsManager {
 
             inventoryKitItems++;
         }
-        List<KitAction> claimActions = kit.getClaimActions();
-        for(KitAction action : claimActions){
+        for(KitAction action : kit.getClaimActions()){
             if(action.isCountAsItem()){
                 inventoryKitItems++;
             }
         }
 
-        boolean enoughSpace = freeSlots < inventoryKitItems;
+        boolean notEnoughSpace = freeSlots < inventoryKitItems;
         boolean dropItemsIfFullInventory = configFile.getBoolean("drop_items_if_full_inventory");
 
-        if(enoughSpace && !dropItemsIfFullInventory && !clearInventory){
+        if(notEnoughSpace && !dropItemsIfFullInventory && !clearInventory){
             sendKitActions(kit.getErrorActions(),player,false);
             return PlayerKitsMessageResult.error(messagesFile.getString("noSpaceError"));
         }
@@ -330,54 +385,101 @@ public class KitsManager {
             }else if(kitItem.equals(itemOffhand)){
                 playerInventory.setItemInOffHand(item);
             }else{
-                if(playerInventory.firstEmpty() == -1 && dropItemsIfFullInventory){
-                    player.getWorld().dropItemNaturally(player.getLocation(), item);
-                }else{
-                    playerInventory.addItem(item);
-                }
+                giveItem(player,item,dropItemsIfFullInventory);
             }
         }
 
         //Actions after
         sendKitActions(kit.getClaimActions(),player,false);
+        return PlayerKitsMessageResult.success();
+    }
 
-        //Update properties
-        if(!giveKitInstructions.isFromCommand()){
-            //One time
-            if(kit.isOneTime() && !PlayerUtils.isPlayerKitsAdmin(player) && !PlayerUtils.hasOneTimeBypassPermission(player)){
-                playerDataManager.setKitOneTime(player,kit.getName());
-            }
+    private PlayerKitsMessageResult giveKitShulker(Player player, Kit kit, FileConfiguration messagesFile, FileConfiguration configFile){
+        Material shulkerMaterial = Material.getMaterial("SHULKER_BOX");
+        if(shulkerMaterial == null){
+            sendKitActions(kit.getErrorActions(),player,false);
+            return PlayerKitsMessageResult.error(messagesFile.getString("shulkerNotSupportedError"));
+        }
 
-            //Cooldown
-            if(kit.getCooldown() != 0 && !PlayerUtils.hasCooldownBypassPermission(player)){
-                long millisMax = System.currentTimeMillis()+(kit.getCooldown()* 1000L);
-                playerDataManager.setKitCooldown(player,kit.getName(),millisMax);
-            }
+        KitItemManager kitItemManager = plugin.getKitItemManager();
+        List<KitItem> items = kit.getItems();
+        List<ItemStack> payloadItems = new ArrayList<>();
+        for(KitItem kitItem : items){
+            payloadItems.add(kitItemManager.createItemFromKitItem(kitItem,player,kit));
+        }
 
-            //Requirements - Buy
-            KitRequirements kitRequirements = kit.getRequirements();
-            if(!giveKitInstructions.isIgnoreRequirements() && kitRequirements != null && giveKitInstructions.isRequirementsSatisfied()){
-                //Check price and update balance
-                double price = kitRequirements.getPrice();
-                Economy economy = plugin.getDependencyManager().getVaultEconomy();
-                if(price > 0 && economy != null){
-                    economy.withdrawPlayer(player,price);
-                }
-
-                //Actions
-                List<String> actions = kitRequirements.getActionsOnBuy();
-                for(String action : actions){
-                    executeAction(player,action);
-                }
-
-                //Data
-                if(kitRequirements.isOneTimeRequirements()){
-                    playerDataManager.setKitBought(player,kitName);
-                }
+        List<ItemStack> shulkerItems = createShulkers(payloadItems,shulkerMaterial);
+        if(!payloadItems.isEmpty() && shulkerItems.isEmpty()){
+            sendKitActions(kit.getErrorActions(),player,false);
+            return PlayerKitsMessageResult.error(messagesFile.getString("shulkerNotSupportedError"));
+        }
+        int usedSlots = PlayerUtils.getUsedSlots(player); //storage contents, 36 slots
+        int freeSlots = 36-usedSlots;
+        int neededSlots = shulkerItems.size();
+        for(KitAction action : kit.getClaimActions()){
+            if(action.isCountAsItem()){
+                neededSlots++;
             }
         }
 
+        boolean clearInventory = kit.isClearInventory();
+        boolean dropItemsIfFullInventory = configFile.getBoolean("drop_items_if_full_inventory");
+        boolean notEnoughSpace = freeSlots < neededSlots;
+        if(notEnoughSpace && !dropItemsIfFullInventory && !clearInventory){
+            sendKitActions(kit.getErrorActions(),player,false);
+            return PlayerKitsMessageResult.error(messagesFile.getString("noSpaceError"));
+        }
+
+        if(clearInventory){
+            player.getInventory().clear();
+        }
+
+        //Actions before
+        sendKitActions(kit.getClaimActions(),player,true);
+
+        for(ItemStack shulker : shulkerItems){
+            giveItem(player,shulker,dropItemsIfFullInventory);
+        }
+
+        //Actions after
+        sendKitActions(kit.getClaimActions(),player,false);
         return PlayerKitsMessageResult.success();
+    }
+
+    private void giveItem(Player player, ItemStack item, boolean dropItemsIfFullInventory){
+        PlayerInventory playerInventory = player.getInventory();
+        if(playerInventory.firstEmpty() == -1 && dropItemsIfFullInventory){
+            player.getWorld().dropItemNaturally(player.getLocation(), item);
+        }else{
+            playerInventory.addItem(item);
+        }
+    }
+
+    private List<ItemStack> createShulkers(List<ItemStack> payloadItems, Material shulkerMaterial){
+        List<ItemStack> shulkerItems = new ArrayList<>();
+        if(payloadItems.isEmpty()){
+            return shulkerItems;
+        }
+
+        for(int i = 0; i < payloadItems.size(); i += 27){
+            ItemStack shulkerItem = new ItemStack(shulkerMaterial);
+            if(!(shulkerItem.getItemMeta() instanceof org.bukkit.inventory.meta.BlockStateMeta blockStateMeta)
+                    || !(blockStateMeta.getBlockState() instanceof org.bukkit.block.ShulkerBox shulkerBox)){
+                continue;
+            }
+
+            int max = Math.min(i + 27, payloadItems.size());
+            int slot = 0;
+            for(int c = i; c < max; c++){
+                shulkerBox.getInventory().setItem(slot,payloadItems.get(c));
+                slot++;
+            }
+            blockStateMeta.setBlockState(shulkerBox);
+            shulkerItem.setItemMeta(blockStateMeta);
+            shulkerItems.add(shulkerItem);
+        }
+
+        return shulkerItems;
     }
 
     public void giveFirstJoinKit(Player player){

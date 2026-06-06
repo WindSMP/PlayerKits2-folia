@@ -6,6 +6,7 @@ import pk.ajneb97.PlayerKits2;
 import pk.ajneb97.managers.MessagesManager;
 import pk.ajneb97.model.PlayerData;
 import pk.ajneb97.model.PlayerDataKit;
+import pk.ajneb97.model.internal.KitOutputMode;
 import pk.ajneb97.model.internal.GenericCallback;
 import pk.ajneb97.model.internal.SimpleCallback;
 import pk.ajneb97.utils.TaskUtils;
@@ -52,6 +53,7 @@ public class MySQLConnection {
                     "CREATE TABLE IF NOT EXISTS playerkits_players" +
                     " (UUID varchar(200) NOT NULL, " +
                     " PLAYER_NAME varchar(50), " +
+                    " KIT_OUTPUT_MODE varchar(20), " +
                     " PRIMARY KEY ( UUID ))"
             );
             statement1.executeUpdate();
@@ -66,6 +68,14 @@ public class MySQLConnection {
                     " PRIMARY KEY ( ID ), " +
                     " FOREIGN KEY (UUID) REFERENCES playerkits_players(UUID))");
             statement2.executeUpdate();
+            try{
+                PreparedStatement statement3 = connection.prepareStatement(
+                        "ALTER TABLE playerkits_players ADD COLUMN KIT_OUTPUT_MODE varchar(20)");
+                statement3.executeUpdate();
+                statement3.close();
+            }catch(SQLException ignored){
+                // Column already exists.
+            }
         } catch (SQLException e) {
             plugin.getLogger().log(java.util.logging.Level.SEVERE, "An error occurred in PlayerKits2", e);
         }
@@ -76,7 +86,7 @@ public class MySQLConnection {
             PlayerData player = null;
             try(Connection connection = getConnection()){
                 PreparedStatement statement = connection.prepareStatement(
-                        "SELECT playerkits_players.UUID, playerkits_players.PLAYER_NAME, " +
+                        "SELECT playerkits_players.UUID, playerkits_players.PLAYER_NAME, playerkits_players.KIT_OUTPUT_MODE, " +
                                 "playerkits_players_kits.NAME, " +
                                 "playerkits_players_kits.COOLDOWN, " +
                                 "playerkits_players_kits.ONE_TIME, " +
@@ -92,12 +102,14 @@ public class MySQLConnection {
                 while(result.next()){
                     UUID uuid1 = UUID.fromString(result.getString("UUID"));
                     String playerName = result.getString("PLAYER_NAME");
+                    KitOutputMode outputMode = KitOutputMode.fromString(result.getString("KIT_OUTPUT_MODE"));
                     String kitName = result.getString("NAME");
                     long cooldown = result.getLong("COOLDOWN");
                     boolean oneTime = result.getBoolean("ONE_TIME");
                     boolean bought = result.getBoolean("BOUGHT");
                     if(player == null){
                         player = new PlayerData(uuid1,playerName);
+                        player.setDefaultKitOutputMode(outputMode);
                     }
                     if(kitName != null){
                         PlayerDataKit playerDataKit = new PlayerDataKit(kitName);
@@ -123,10 +135,12 @@ public class MySQLConnection {
             try(Connection connection = getConnection()){
                 PreparedStatement statement = connection.prepareStatement(
                         "INSERT INTO playerkits_players " +
-                                "(UUID, PLAYER_NAME) VALUE (?,?)");
+                                "(UUID, PLAYER_NAME, KIT_OUTPUT_MODE) VALUE (?,?,?)");
 
                 statement.setString(1, player.getUuid().toString());
                 statement.setString(2, player.getName());
+                KitOutputMode outputMode = player.getDefaultKitOutputMode();
+                statement.setString(3, outputMode != null ? outputMode.name() : null);
                 statement.executeUpdate();
 
                 TaskUtils.runSync(plugin, () -> {
@@ -146,6 +160,23 @@ public class MySQLConnection {
                                 "PLAYER_NAME=? WHERE UUID=?");
 
                 statement.setString(1, player.getName());
+                statement.setString(2, player.getUuid().toString());
+                statement.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getLogger().log(java.util.logging.Level.SEVERE, "An error occurred in PlayerKits2", e);
+            }
+        });
+    }
+
+    public void updatePlayerOutputMode(PlayerData player){
+        TaskUtils.runAsync(plugin, () -> {
+            try(Connection connection = getConnection()){
+                PreparedStatement statement = connection.prepareStatement(
+                        "UPDATE playerkits_players SET " +
+                                "KIT_OUTPUT_MODE=? WHERE UUID=?");
+
+                KitOutputMode outputMode = player.getDefaultKitOutputMode();
+                statement.setString(1, outputMode != null ? outputMode.name() : null);
                 statement.setString(2, player.getUuid().toString());
                 statement.executeUpdate();
             } catch (SQLException e) {

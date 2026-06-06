@@ -6,19 +6,27 @@ public class GiveKitInstructions {
     private boolean requirementsSatisfied; //The player is buying the kit and all requirements are satisfied
     private boolean ignorePermission;
     private boolean ignoreRequirements;
+    private KitOutputMode outputMode;
 
     public GiveKitInstructions(){
         this.fromCommand = false;
         this.requirementsSatisfied = false;
         this.ignoreRequirements = false;
         this.ignorePermission = false;
+        this.outputMode = KitOutputMode.ARMOR;
     }
 
     public GiveKitInstructions(boolean fromCommand,boolean requirementsSatisfied,boolean ignorePermission,boolean ignoreRequirements) {
+        this(fromCommand, requirementsSatisfied, ignorePermission, ignoreRequirements, KitOutputMode.ARMOR);
+    }
+
+    public GiveKitInstructions(boolean fromCommand,boolean requirementsSatisfied,boolean ignorePermission,boolean ignoreRequirements,
+                               KitOutputMode outputMode) {
         this.fromCommand = fromCommand;
         this.requirementsSatisfied = requirementsSatisfied;
         this.ignorePermission = ignorePermission;
         this.ignoreRequirements = ignoreRequirements;
+        this.outputMode = outputMode != null ? outputMode : KitOutputMode.ARMOR;
     }
 
     public boolean isFromCommand() {
@@ -51,5 +59,13 @@ public class GiveKitInstructions {
 
     public void setIgnoreRequirements(boolean ignoreRequirements) {
         this.ignoreRequirements = ignoreRequirements;
+    }
+
+    public KitOutputMode getOutputMode() {
+        return outputMode;
+    }
+
+    public void setOutputMode(KitOutputMode outputMode) {
+        this.outputMode = outputMode != null ? outputMode : KitOutputMode.ARMOR;
     }
 }

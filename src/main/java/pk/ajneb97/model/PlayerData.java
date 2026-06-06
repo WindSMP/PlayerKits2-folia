@@ -3,6 +3,7 @@ package pk.ajneb97.model;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import pk.ajneb97.model.internal.KitOutputMode;
 
 public class PlayerData {
 
@@ -11,12 +12,14 @@ public class PlayerData {
 
     private List<PlayerDataKit> kits;
     private boolean modified;
+    private KitOutputMode defaultKitOutputMode;
 
     public PlayerData(UUID uuid, String name){
         this.name = name;
         this.uuid = uuid;
         this.kits = new CopyOnWriteArrayList<>();
         this.modified = false;
+        this.defaultKitOutputMode = null;
     }
 
     public UUID getUuid() {
@@ -53,6 +56,14 @@ public class PlayerData {
 
     public void setModified(boolean modified) {
         this.modified = modified;
+    }
+
+    public KitOutputMode getDefaultKitOutputMode() {
+        return defaultKitOutputMode;
+    }
+
+    public void setDefaultKitOutputMode(KitOutputMode defaultKitOutputMode) {
+        this.defaultKitOutputMode = defaultKitOutputMode;
     }
 
     public PlayerDataKit getKit(String kitName){

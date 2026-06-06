@@ -24,6 +24,7 @@ public class InventoryConfigManager {
         if(this.configFile.isFirstTime() && OtherUtils.isLegacy()){
             checkAndFix();
         }
+        checkUpdate();
         checkClickCommands();
     }
 
@@ -63,6 +64,33 @@ public class InventoryConfigManager {
                     }
                 }
             }
+        }
+
+        if(needsSave){
+            configFile.saveConfig();
+        }
+    }
+
+    public void checkUpdate(){
+        boolean needsSave = false;
+        FileConfiguration config = configFile.getConfig();
+
+        if(!config.contains("inventories.output_select_inventory")){
+            config.set("inventories.output_select_inventory.slots",27);
+            config.set("inventories.output_select_inventory.title","&4&lSelect Output - %kit%");
+
+            config.set("inventories.output_select_inventory.11.item.id","IRON_CHESTPLATE");
+            config.set("inventories.output_select_inventory.11.item.name","&aArmor Output");
+            config.set("inventories.output_select_inventory.11.type","output: armor");
+
+            config.set("inventories.output_select_inventory.15.item.id","CHEST");
+            config.set("inventories.output_select_inventory.15.item.name","&bShulker Output");
+            config.set("inventories.output_select_inventory.15.type","output: shulker");
+
+            config.set("inventories.output_select_inventory.13.item.id","ARROW");
+            config.set("inventories.output_select_inventory.13.item.name","&cGo Back");
+            config.set("inventories.output_select_inventory.13.open_inventory","previous");
+            needsSave = true;
         }
 
         if(needsSave){

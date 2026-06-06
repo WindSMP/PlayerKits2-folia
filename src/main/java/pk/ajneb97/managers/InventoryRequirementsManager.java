@@ -8,6 +8,7 @@ import pk.ajneb97.PlayerKits2;
 import pk.ajneb97.model.Kit;
 import pk.ajneb97.model.KitRequirements;
 import pk.ajneb97.model.internal.GiveKitInstructions;
+import pk.ajneb97.model.internal.KitOutputMode;
 import pk.ajneb97.model.internal.PlayerKitsMessageResult;
 import pk.ajneb97.model.inventory.InventoryPlayer;
 import pk.ajneb97.utils.MiniMessageUtils;
@@ -111,10 +112,16 @@ public class InventoryRequirementsManager {
 
         //Buy - Unlock
         KitsManager kitsManager = plugin.getKitsManager();
+        KitOutputMode outputMode = inventoryPlayer.getSelectedOutputMode();
+        if(outputMode == null){
+            outputMode = KitOutputMode.ARMOR;
+        }
         PlayerKitsMessageResult result = kitsManager.giveKit(player,inventoryPlayer.getKitName(),
-                new GiveKitInstructions(false,true,false,false));
+                new GiveKitInstructions(false,true,false,false,outputMode));
         if(!result.isError()){
             if(plugin.getConfigsManager().getMainConfigManager().isCloseInventoryOnClaim()){
+                inventoryPlayer.setKitName(null);
+                inventoryPlayer.setSelectedOutputMode(null);
                 player.closeInventory();
                 return;
             }
@@ -129,6 +136,7 @@ public class InventoryRequirementsManager {
     public void requirementsInventoryCancel(InventoryPlayer inventoryPlayer){
         inventoryPlayer.setInventoryName(inventoryPlayer.getPreviousInventoryName());
         inventoryPlayer.setKitName(null);
+        inventoryPlayer.setSelectedOutputMode(null);
         inventoryManager.openInventory(inventoryPlayer);
     }
 

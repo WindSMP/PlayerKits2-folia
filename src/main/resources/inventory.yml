@@ -56,3 +56,21 @@ inventories:
         id: "GREEN_STAINED_GLASS_PANE"
         name: "&aBuy"
       type: buy_yes
+  output_select_inventory:
+    slots: 27
+    title: "&4&lSelect Output - %kit%"
+    11:
+      item:
+        id: "IRON_CHESTPLATE"
+        name: "&aArmor Output"
+      type: "output: armor"
+    15:
+      item:
+        id: "SHULKER_BOX"
+        name: "&bShulker Output"
+      type: "output: shulker"
+    13:
+      item:
+        id: "ARROW"
+        name: "&cGo Back"
+      open_inventory: previous
